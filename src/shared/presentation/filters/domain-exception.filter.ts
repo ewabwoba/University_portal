@@ -2,14 +2,16 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/commo
 import { Response } from 'express';
 import {
   ConflictError, DomainError, ForbiddenError,
-  NotFoundError, UnauthorizedError, ValidationError,
-} from '../../domain/domain-error';
+  NotFoundError, UnauthenticatedError, ValidationError,
+} from '../../domain/domain-error.js';
+// } from '../../domain/domain-error';
+
 
 const STATUS_MAP = new Map<Function, number>([
   [NotFoundError, HttpStatus.NOT_FOUND],
   [ConflictError, HttpStatus.CONFLICT],
   [ValidationError, HttpStatus.UNPROCESSABLE_ENTITY],
-  [UnauthorizedError, HttpStatus.UNAUTHORIZED],
+  [UnauthenticatedError, HttpStatus.UNAUTHORIZED],
   [ForbiddenError, HttpStatus.FORBIDDEN],
 ]);
 
