@@ -1,0 +1,56 @@
+// ─────────────────────────── Shared kernel tables ───────────────────────────
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+
+  @@map("outbox_status")
+}
+
+/// Transactional outbox. Rows are written in the SAME transaction as the business change
+/// and delivered at-least-once by the OutboxDispatcher. Consumers must be idempotent.
+model OutboxEvent {
+  id            String       @id @db.Uuid
+  eventName     String       @map("event_name")
+  aggregateType String       @map("aggregate_type")
+  aggregateId   String       @map("aggregate_id")
+  payload       Json
+  occurredAt    DateTime     @map("occurred_at")
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now()) @map("next_attempt_at")
+  lockedUntil   DateTime?    @map("locked_until")
+  processedAt   DateTime?    @map("processed_at")
+  lastError     String?      @map("last_error")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedUntil])
+  @@map("outbox_events")
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("idempotency_status")
+}
+
+/// One row per (principal, Idempotency-Key). Guarantees a retried request is executed once.
+model IdempotencyKey {
+  id           String            @id @default(uuid()) @db.Uuid
+  principalId  String            @map("principal_id")
+  key          String
+  requestHash  String            @map("request_hash")
+  status       IdempotencyStatus @default(IN_PROGRESS)
+  responseBody Json?             @map("response_body")
+  expiresAt    DateTime          @map("expires_at")
+  completedAt  DateTime?         @map("completed_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  @@unique([principalId, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}

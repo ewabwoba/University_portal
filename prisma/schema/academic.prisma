@@ -1,0 +1,195 @@
+// ─────────────────────────── Academic structure ───────────────────────────
+
+enum AwardType {
+  CERTIFICATE
+  DIPLOMA
+  BACHELORS
+  POSTGRADUATE_DIPLOMA
+  MASTERS
+  DOCTORATE
+
+  @@map("award_type")
+}
+
+enum OfferingStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+
+  @@map("offering_status")
+}
+
+model Campus {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  location  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faculties Faculty[]
+
+  @@map("campuses")
+}
+
+model Faculty {
+  id        String   @id @default(uuid()) @db.Uuid
+  campusId  String   @map("campus_id") @db.Uuid
+  code      String
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  campus      Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  departments Department[]
+
+  @@unique([campusId, code])
+  @@index([campusId])
+  @@map("faculties")
+}
+
+model Department {
+  id        String   @id @default(uuid()) @db.Uuid
+  facultyId String   @map("faculty_id") @db.Uuid
+  code      String
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faculty    Faculty     @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+  programmes Programme[]
+
+  @@unique([facultyId, code])
+  @@index([facultyId])
+  @@map("departments")
+}
+
+model Programme {
+  id                       String    @id @default(uuid()) @db.Uuid
+  departmentId             String    @map("department_id") @db.Uuid
+  code                     String    @unique
+  name                     String
+  awardType                AwardType @map("award_type")
+  durationYears            Int       @map("duration_years")
+  /// New admissions follow this curriculum version; existing students keep the one they joined under.
+  currentCurriculumVersion Int       @default(1) @map("current_curriculum_version")
+  isActive                 Boolean   @default(true) @map("is_active")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  department Department      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  curriculum ProgrammeUnit[]
+
+  @@index([departmentId])
+  @@map("programmes")
+}
+
+model Unit {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String
+  creditPoints Int      @map("credit_points")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  curriculumEntries ProgrammeUnit[]
+  offerings         UnitOffering[]
+
+  @@map("units")
+}
+
+/// One unit's place in one programme's curriculum, for one curriculum version.
+model ProgrammeUnit {
+  id                  String   @id @default(uuid()) @db.Uuid
+  programmeId         String   @map("programme_id") @db.Uuid
+  unitId              String   @map("unit_id") @db.Uuid
+  curriculumVersion   Int      @map("curriculum_version")
+  studyYear           Int      @map("study_year")
+  recommendedSemester Int      @map("recommended_semester")
+  isCompulsory        Boolean  @default(true) @map("is_compulsory")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  programme    Programme                  @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  unit         Unit                       @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  prerequisites ProgrammeUnitPrerequisite[] @relation("Entry")
+  requiredBy    ProgrammeUnitPrerequisite[] @relation("Required")
+
+  @@unique([programmeId, unitId, curriculumVersion])
+  @@index([programmeId, curriculumVersion])
+  @@index([unitId])
+  @@map("programme_units")
+}
+
+model ProgrammeUnitPrerequisite {
+  id              String @id @default(uuid()) @db.Uuid
+  programmeUnitId String @map("programme_unit_id") @db.Uuid
+  prerequisiteId  String @map("prerequisite_id") @db.Uuid
+
+  entry    ProgrammeUnit @relation("Entry", fields: [programmeUnitId], references: [id], onDelete: Cascade)
+  required ProgrammeUnit @relation("Required", fields: [prerequisiteId], references: [id], onDelete: Restrict)
+
+  @@unique([programmeUnitId, prerequisiteId])
+  @@index([prerequisiteId])
+  @@map("programme_unit_prerequisites")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique // e.g. "2026/2027"
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  semesters Semester[]
+
+  @@index([startDate])
+  @@map("academic_years")
+}
+
+model Semester {
+  id                  String    @id @default(uuid()) @db.Uuid
+  academicYearId      String    @map("academic_year_id") @db.Uuid
+  sequence            Int // 1, 2, 3 within the year
+  name                String
+  startDate           DateTime  @map("start_date") @db.Date
+  endDate             DateTime  @map("end_date") @db.Date
+  registrationOpensAt DateTime  @map("registration_opens_at")
+  registrationClosesAt DateTime @map("registration_closes_at")
+  addDropClosesAt     DateTime? @map("add_drop_closes_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  academicYear AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  offerings    UnitOffering[]
+
+  @@unique([academicYearId, sequence])
+  @@index([startDate])
+  @@map("semesters")
+}
+
+model UnitOffering {
+  id            String         @id @default(uuid()) @db.Uuid
+  unitId        String         @map("unit_id") @db.Uuid
+  semesterId    String         @map("semester_id") @db.Uuid
+  classGroup    String         @map("class_group")
+  capacity      Int
+  /// Seats taken. Changed ONLY through the atomic reserve/release operations (see OfferingCapacity).
+  enrolledCount Int            @default(0) @map("enrolled_count")
+  status        OfferingStatus @default(OPEN)
+  /// Assigned in the People phase, which also adds the foreign key to lecturers.
+  lecturerId    String?        @map("lecturer_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  unit     Unit     @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+
+  @@unique([unitId, semesterId, classGroup])
+  @@index([semesterId])
+  @@map("unit_offerings")
+}

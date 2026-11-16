@@ -1,0 +1,28 @@
+// ─────────────────────────── Policy configuration ───────────────────────────
+// Fee-clearance thresholds, grade scales, GPA formulas, supplementary/retake rules
+// (BRD section 13) live here as versioned, effective-dated data - never in code.
+
+enum PolicyStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+
+  @@map("policy_status")
+}
+
+model PolicyVersion {
+  id            String       @id @default(uuid()) @db.Uuid
+  policyKey     String       @map("policy_key") // e.g. "finance.fee_clearance"
+  version       Int
+  value         Json
+  status        PolicyStatus @default(DRAFT)
+  effectiveFrom DateTime     @map("effective_from")
+  effectiveTo   DateTime?    @map("effective_to")
+  createdBy     String?      @map("created_by") @db.Uuid
+  approvedBy    String?      @map("approved_by") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@unique([policyKey, version])
+  @@index([policyKey, status, effectiveFrom])
+  @@map("policy_versions")
+}
